@@ -398,8 +398,11 @@ export async function ambientForEntry(
   if (aiPausedNow(settings.pausedUntil, now)) {
     return skip("paused", "The AI is paused for today. Your entry is saved.");
   }
-  if (!settings.ambientOn || !settings.sendTextToAi || !diaryAiEnabled()) {
-    return skip("off", "Ambient AI is off in Diary settings.");
+  if (!settings.ambientOn || !settings.sendTextToAi || !diaryAiEnabled() || !diaryAiConfigured()) {
+    return skip("off", "");
+  }
+  if (row.body.trim().length < 12) {
+    return skip("skipped", "");
   }
   if (detectDistress(row.body)) {
     await pauseDiaryAi(user.id, user, now);
@@ -427,12 +430,12 @@ export async function ambientForEntry(
   if (!result) {
     const updated = await prisma.diaryEntry.update({
       where: { id },
-      data: { ambientStatus: "failed", moodColors: fallbackGradient(row.body.length) },
+      data: { ambientStatus: "skipped", moodColors: fallbackGradient(row.body.length) },
     });
     return {
       entry: toEntryView(updated),
       paused: false,
-      message: "The ambient layer could not be reached. Your entry is saved exactly as written.",
+      message: "",
     };
   }
 

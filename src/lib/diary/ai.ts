@@ -12,7 +12,7 @@
 
 import { prisma } from "@/lib/db";
 import { AGENT_MODEL, executeWithModelPool, isAIConfigured } from "@/lib/agent/llm";
-import { PERSONAS, personaById } from "./constants";
+import { PERSONAS, fallbackGradient, personaById } from "./constants";
 
 export interface AmbientResult {
   hexColors: [string, string];
@@ -71,12 +71,12 @@ async function complete(
   if (!diaryAiConfigured()) return null;
 
   try {
-    return await executeWithModelPool(async (client, _index, _model) => {
+    return await executeWithModelPool(async (client, _index, model) => {
       // Structured calls ask for raw JSON in the prompt rather than using
       // `response_format`: reasoning models on the free tier truncate or wrap
       // the object, and a truncated object fails provider-side validation.
       const response = await client.chat.completions.create({
-        model: DIARY_MODEL,
+        model: process.env.DIARY_MODEL?.trim() || model,
         temperature: options.temperature ?? 0.6,
         max_tokens: options.maxTokens ?? 500,
         messages: [
@@ -169,11 +169,20 @@ export async function runAmbient(
   const reframing = typeof data.oneLineReframing === "string" ? data.oneLineReframing.trim().slice(0, 140) : "";
   const spark = typeof data.spark === "string" ? data.spark.trim().slice(0, 180) : "";
 
-  if (colors.length < 2 || stamps.length < 3) return null;
+  const fallbackColors = fallbackGradient(trimmed.length);
+  const resolvedColors: [string, string] = [colors[0] ?? fallbackColors[0], colors[1] ?? fallbackColors[1]];
+  const fallbackStamps = ["✦", "☁", "◌"] as const;
+  const resolvedStamps: [string, string, string] = [
+    stamps[0] ?? fallbackStamps[0],
+    stamps[1] ?? fallbackStamps[1],
+    stamps[2] ?? fallbackStamps[2],
+  ];
+
+  if (!reframing && !spark && colors.length < 2 && stamps.length < 3) return null;
 
   return {
-    hexColors: [colors[0], colors[1]],
-    emojiStamps: [stamps[0], stamps[1], stamps[2]],
+    hexColors: resolvedColors,
+    emojiStamps: resolvedStamps,
     oneLineReframing: reframing,
     spark,
   };
