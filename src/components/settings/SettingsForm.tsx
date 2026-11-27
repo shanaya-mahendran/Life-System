@@ -9,6 +9,7 @@ import { ToastStack, type ToastMessage } from "@/components/ui/Toast";
 import { signOutUser } from "@/lib/auth-client";
 
 const TIMEZONES = [
+  "Asia/Colombo",
   "Asia/Kolkata",
   "Asia/Dubai",
   "Asia/Singapore",

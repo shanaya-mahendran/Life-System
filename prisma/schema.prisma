@@ -16,7 +16,7 @@ model User {
   id       String  @id
   email    String  @unique
   name     String?
-  timezone String  @default("Asia/Kolkata")
+  timezone String  @default("Asia/Colombo")
   avatarUrl String?
 
   // Planning preferences
@@ -49,6 +49,16 @@ model User {
   diaryStamps   DiaryStamp[]
   burnEntries   BurnEntry[]
   diarySettings DiarySettings?
+  mindResetDays     MindResetDay[]
+  mindResetLimits   MindResetLimit[]
+  mindResetSessions MindResetFocusSession[]
+  mindResetPauses   MindResetPause[]
+  mindResetSettings MindResetSettings?
+  prayerDays        PrayerDay[]
+  prayerLogs        PrayerLog[]
+  prayerStateEvents PrayerStateEvent[]
+  qadaLedger        QadaLedger[]
+  prayerSettings    PrayerSettings?
 
   @@map("users")
 }
@@ -658,4 +668,241 @@ model DiarySettings {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("diary_settings")
+}
+
+/* -------------------------------------------------------------------------- */
+/* MindReset digital wellbeing (additive — no existing table is altered)       */
+/* -------------------------------------------------------------------------- */
+
+model MindResetDay {
+  id     String @id @default(cuid())
+  userId String
+  // "YYYY-MM-DD" in the user's timezone — one row per day.
+  dateKey String
+  screenMinutes Int @default(0)
+  pickups       Int @default(0)
+  focusMinutes  Int @default(0)
+  nightMinutes  Int @default(0)
+  // [{ name, minutes, category }] — aggregated per app, never raw events.
+  apps  Json @default("[]")
+  // number[24] — minutes of foreground time per local hour.
+  hours Json @default("[]")
+  // manual | sync
+  source String @default("manual")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([userId, dateKey])
+  @@map("mindreset_days")
+}
+
+model MindResetLimit {
+  id     String @id @default(cuid())
+  userId String
+  label  String
+  // cap | schedule | budget | preset
+  type   String @default("cap")
+  // App or group name this limit applies to. Empty for presets.
+  target String @default("")
+  // Budget in minutes for cap / budget limits.
+  minutes Int?
+  // Local minute-of-day bounds for schedule limits.
+  startMinute Int?
+  endMinute   Int?
+  // Weekdays the limit applies to, 0 = Sunday.
+  days    Json    @default("[0,1,2,3,4,5,6]")
+  enabled Boolean @default(true)
+  strict  Boolean @default(false)
+  // Bedtime | Work Focus | Brick Mode when type = preset.
+  preset  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, enabled])
+  @@map("mindreset_limits")
+}
+
+model MindResetFocusSession {
+  id     String @id @default(cuid())
+  userId String
+  startedAt DateTime
+  plannedMinutes Int
+  actualMinutes  Int  @default(0)
+  blockedApps Json   @default("[]")
+  completed   Boolean @default(false)
+  domainSlug  String  @default("mindreset")
+  calendarEventId String?
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("mindreset_focus_sessions")
+}
+
+model MindResetPause {
+  id     String @id @default(cuid())
+  userId String
+  at     DateTime @default(now())
+  app    String
+  answer String @default("")
+  moodTag String @default("")
+  // true = the user went back, false = five minutes granted
+  wentBack Boolean @default(true)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, at])
+  @@map("mindreset_pauses")
+}
+
+model MindResetSettings {
+  userId String @id
+  goalMinutes      Int @default(240)
+  focusGoalMinutes Int @default(30)
+  blockingOn   Boolean @default(false)
+  // reflective | strict
+  pauseStyle   String  @default("reflective")
+  strictMode   Boolean @default(false)
+  securityLock Boolean @default(false)
+  savePauseToDiary Boolean @default(true)
+  shareWithSleep   Boolean @default(true)
+  shareWithHabits  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("mindreset_settings")
+}
+
+/* -------------------------------------------------------------------------- */
+/* Prayer (Salah) domain (additive — no existing table is altered)             */
+/* -------------------------------------------------------------------------- */
+
+model PrayerDay {
+  id     String @id @default(cuid())
+  userId String
+  // "YYYY-MM-DD" in the user's timezone — one row per day, only when the day
+  // is not in the default Active state.
+  dateKey String
+  // active | excused | adapted | traveller | review
+  state       String @default("active")
+  // user | health | cycle | travel | mood — where the suggestion came from.
+  stateSource String @default("user")
+  stateNote   String @default("")
+  locationLabel String @default("")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey])
+  @@index([userId, dateKey])
+  @@map("prayer_days")
+}
+
+model PrayerLog {
+  id     String @id @default(cuid())
+  userId String
+  dateKey String
+  // fajr | dhuhr | asr | maghrib | isha | sunnah | witr
+  prayer String
+  // on_time | late | missed
+  status String
+  // normal | seated | lying | combined | shortened
+  method String @default("normal")
+  // fard | sunnah | witr — only fard counts toward the five.
+  category String @default("fard")
+  loggedAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, dateKey, prayer])
+  @@index([userId, dateKey])
+  @@map("prayer_logs")
+}
+
+model PrayerStateEvent {
+  id     String @id @default(cuid())
+  userId String
+  // active | excused | adapted | traveller | review
+  state  String
+  // user | health | cycle | travel | mood
+  source String @default("user")
+  note   String @default("")
+  startedAt DateTime @default(now())
+  endedAt   DateTime?
+  // user | domain — sensitive inferences are only applied once confirmed.
+  confirmedBy String @default("user")
+
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startedAt])
+  @@map("prayer_state_events")
+}
+
+model QadaLedger {
+  id     String @id @default(cuid())
+  userId String
+  // fajr | dhuhr | asr | maghrib | isha
+  prayer String
+  owed      Int @default(0)
+  completed Int @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, prayer])
+  @@index([userId])
+  @@map("qada_ledger")
+}
+
+model PrayerSettings {
+  userId String @id
+
+  // Times engine
+  latitude      Float  @default(21.3891)
+  longitude     Float  @default(39.8579)
+  locationLabel String @default("Makkah")
+  method        String @default("mwl")
+  // standard | hanafi
+  asrMethod    String @default("standard")
+  // angle | middle | seventh
+  highLatitude String @default("angle")
+  madhhab      String @default("shafii")
+  adjustMinutes Int   @default(0)
+
+  // Gentle reminders — no escalation, no flashing.
+  remindersOn     Boolean @default(true)
+  fajrAlarm       Boolean @default(false)
+  lockDuringPrayer Boolean @default(false)
+
+  // Optional prayers, tracked separately from the five.
+  trackSunnah Boolean @default(false)
+  trackWitr   Boolean @default(true)
+
+  // with_each | two_with_each | friday
+  qadaPlan String @default("with_each")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("prayer_settings")
 }

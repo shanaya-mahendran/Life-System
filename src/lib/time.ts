@@ -6,6 +6,9 @@
  * about DST boundaries because the planner reasons about "days" and "hours".
  */
 
+/** App-wide default timezone: Colombo, Sri Lanka (UTC+5:30). */
+export const DEFAULT_TIMEZONE = "Asia/Colombo";
+
 export const MS_MINUTE = 60_000;
 export const MS_HOUR = 3_600_000;
 export const MS_DAY = 86_400_000;

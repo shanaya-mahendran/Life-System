@@ -4,7 +4,7 @@
   "private": true,
   "description": "LifeOS Agent — chat-driven master calendar across 18 life domains.",
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --turbopack",
     "build": "prisma generate && next build",
     "postinstall": "prisma generate",
     "start": "next start",

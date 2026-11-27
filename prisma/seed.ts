@@ -34,7 +34,7 @@ const DEMO_USER = {
   id: "00000000-0000-4000-8000-000000000001",
   email: process.env.DEMO_EMAIL ?? "demo@lifeos.app",
   name: "Shanaya Mahendran",
-  timezone: process.env.DEMO_TIMEZONE ?? "Asia/Kolkata",
+  timezone: process.env.DEMO_TIMEZONE ?? "Asia/Colombo",
 };
 
 const DOMAINS = [

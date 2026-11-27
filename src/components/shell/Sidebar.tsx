@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Activity, BookOpen, RotateCcw, X } from "lucide-react";
+import { Activity, BookOpen, ChevronRight, MoonStar, RotateCcw, Smartphone, X } from "lucide-react";
 import { Logo } from "@/components/brand/Logo";
 import { NAV_ITEMS } from "./nav";
 import { cn } from "@/lib/utils";
@@ -11,6 +11,8 @@ export interface SidebarFeatures {
   resetPlan: boolean;
   habitTracker: boolean;
   diary: boolean;
+  mindReset: boolean;
+  prayer: boolean;
 }
 
 interface SidebarProps {
@@ -36,8 +38,10 @@ export function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const personalTools = [
+    features?.prayer && { href: "/prayer", label: "Prayer", icon: MoonStar },
     features?.resetPlan && { href: "/reset", label: "Reset Plan", icon: RotateCcw },
     features?.habitTracker && { href: "/habits", label: "Habit Tracker", icon: Activity },
+    features?.mindReset && { href: "/mindreset", label: "MindReset", icon: Smartphone },
     features?.diary && { href: "/diary", label: "Diary", icon: BookOpen },
   ].filter((item) => item !== false && item !== undefined);
 
@@ -113,9 +117,15 @@ export function Sidebar({
       </div>
 
       {(taskCount > 0 || eventPlanCount > 0) && (
-        <div className="surface-flat shrink-0 space-y-3 rounded-xl p-3.5">
+        <Link
+          href="/review"
+          onClick={onClose}
+          title="Open the weekly review"
+          className="surface-flat block shrink-0 space-y-3 rounded-xl p-3.5 transition hover:border-white/20"
+        >
           <div className="flex items-center justify-between gap-2">
             <div className="text-sm font-semibold text-white">Weekly progress</div>
+            <ChevronRight className="h-3.5 w-3.5 text-white/25" />
           </div>
           {taskCount > 0 && (
             <div>
@@ -126,7 +136,7 @@ export function Sidebar({
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full bg-violet-300" style={{ width: `${Math.min(100, adherence)}%` }} />
               </div>
-              <p className="mt-1 text-[0.65rem] text-white/45">{adherence}% of tasks complete</p>
+              <p className="mt-1 text-[0.65rem] text-white/45">{adherence}% of this week&apos;s tasks complete</p>
             </div>
           )}
           {eventPlanCount > 0 && (
@@ -152,7 +162,7 @@ export function Sidebar({
               </p>
             </div>
           )}
-        </div>
+        </Link>
       )}
     </div>
   );

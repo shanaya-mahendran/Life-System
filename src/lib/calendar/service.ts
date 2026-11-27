@@ -6,6 +6,7 @@
  * logs are enforced, so no caller can bypass them.
  */
 
+import { cache } from "react";
 import { prisma } from "@/lib/db";
 import { DOMAIN_MAP } from "@/lib/domains/catalog";
 import { requireDomain } from "@/lib/account";
@@ -23,6 +24,7 @@ import { findFreeSlots, type FreeSlot } from "./free-slots";
 import { expandOccurrences } from "./recurrence";
 import { eventStatusExclusions } from "./status-filter";
 import { serializeEvent, toCalendarEvent, toCalendarTask } from "./mappers";
+import { summariseWeekTasks } from "@/lib/tasks/week";
 import type { CalendarEvent, CalendarTask } from "./types";
 
 export interface ServiceUser {
@@ -757,7 +759,12 @@ export async function getBrief(userId: string, kind: "morning" | "review" | "ins
 /* Insights                                                                    */
 /* -------------------------------------------------------------------------- */
 
-export async function getDayOverview(user: ServiceUser, now: Date) {
+/**
+ * Memoised per request: Today renders the brief and the schedule, and both
+ * need the same day overview. Without this the page ran the same event and
+ * task queries twice on every load.
+ */
+export const getDayOverview = cache(async (user: ServiceUser, now: Date) => {
   const dayStart = startOfZonedDay(now, user.timezone);
   const dayEnd = addZonedDays(dayStart, 1, user.timezone);
   const events = await listEvents(user, { from: dayStart, to: dayEnd });
@@ -778,7 +785,7 @@ export async function getDayOverview(user: ServiceUser, now: Date) {
     focusMinutes,
     nextEvent: events.find((event) => event.end.getTime() >= now.getTime()) ?? null,
   };
-}
+});
 
 export async function getWeekStats(user: ServiceUser, weekStart: Date) {
   const weekEnd = addZonedDays(weekStart, 7, user.timezone);
@@ -786,8 +793,20 @@ export async function getWeekStats(user: ServiceUser, weekStart: Date) {
   const [events, prevEvents, tasks, prevTasks] = await Promise.all([
     listEvents(user, { from: weekStart, to: weekEnd }),
     listEvents(user, { from: prevStart, to: weekStart }),
-    prisma.task.findMany({ where: { userId: user.id } }),
-    prisma.task.findMany({ where: { userId: user.id, updatedAt: { lt: weekStart } } }),
+    // Only tasks that belong to this week: due in it or completed in it. The
+    // old query loaded every task ever created, so the percentage of "done"
+    // was really a lifetime figure wearing a weekly label.
+    prisma.task.findMany({
+      where: {
+        userId: user.id,
+        OR: [
+          { dueDate: { gte: weekStart, lt: weekEnd } },
+          { completedAt: { gte: weekStart, lt: weekEnd } },
+        ],
+      },
+      select: { id: true, status: true, dueDate: true, completedAt: true },
+    }),
+    prisma.task.count({ where: { userId: user.id, updatedAt: { lt: weekStart } } }),
   ]);
 
   const perDomain = new Map<string, { slug: string; name: string; accent: string; minutes: number; count: number }>();
@@ -804,11 +823,10 @@ export async function getWeekStats(user: ServiceUser, weekStart: Date) {
     perDomain.set(event.domainSlug, entry);
   }
 
-  const done = tasks.filter((task) => task.status === "done").length;
-  const slipped = tasks.filter(
-    (task) => task.status !== "done" && task.dueDate && task.dueDate.getTime() < weekEnd.getTime(),
-  ).length;
-  const totalTasks = tasks.length || 1;
+  const weekTasks = summariseWeekTasks(tasks, weekStart, weekEnd);
+  const done = weekTasks.done;
+  const slipped = weekTasks.slipped;
+  const totalTasks = weekTasks.total;
 
   const focusMinutes = events
     .filter((event) => !UNPROTECTED_PREFIXES.includes(event.domainSlug))
@@ -830,11 +848,11 @@ export async function getWeekStats(user: ServiceUser, weekStart: Date) {
     plannedMinutes: events.reduce((total, event) => total + minutesBetween(event.start, event.end), 0),
     focusMinutes,
     prevFocusMinutes,
-    adherence: Math.round((done / totalTasks) * 100),
+    adherence: weekTasks.adherence,
     done,
     slipped,
-    totalTasks: tasks.length,
-    prevTaskCount: prevTasks.length,
+    totalTasks,
+    prevTaskCount: prevTasks,
     sleepNights: sleepEvents.length,
     karateSessions: karateEvents.length,
   };

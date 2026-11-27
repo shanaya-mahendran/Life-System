@@ -10,7 +10,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { formatInZone, dayKey } from "@/lib/time";
+import { DEFAULT_TIMEZONE, formatInZone, dayKey } from "@/lib/time";
 import { expandOccurrences } from "@/lib/calendar/recurrence";
 
 const dbNotification = (prisma as any).notification;
@@ -105,7 +105,7 @@ export async function generateEventNotifications(now: Date = new Date()): Promis
 
   const flattened: FlattenedEvent[] = [];
   for (const event of candidateEvents) {
-    const tz = event.user?.timezone || "Asia/Kolkata";
+    const tz = event.user?.timezone || DEFAULT_TIMEZONE;
     if (event.recurrence) {
       const occurrences = expandOccurrences(
         { start: event.start, end: event.end, recurrence: event.recurrence, recurrenceUntil: event.recurrenceUntil },
@@ -341,7 +341,7 @@ export async function recordEventAchievement(
     throw new Error("Only scheduled events can be checked in.");
   }
 
-  const timeZone = event.user?.timezone || "Asia/Kolkata";
+  const timeZone = event.user?.timezone || DEFAULT_TIMEZONE;
   const occurrence = event.recurrence
     ? expandOccurrences(
         {

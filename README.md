@@ -26,7 +26,23 @@ The app now carries two first-class sections beside the domains. Each one sits b
 |---|---|---|
 | Reset Plan (90-day program) | `RESET_PLAN_ENABLED` | `/reset`, `/reset/audit`, `/reset/gap`, `/reset/builder`, `/reset/plan`, `/reset/notebook`, `/reset/reports`, `/reset/finish`, `/reset/settings` |
 | Habit Tracker | `HABIT_TRACKER_ENABLED` | `/habits`, `/habits/goals/[id]` |
+| MindReset (digital wellbeing) | `MIND_RESET_ENABLED` | `/mindreset`, `/mindreset/insights`, `/mindreset/focus`, `/mindreset/limits`, `/mindreset/settings` |
 | Diary Mode | `DIARY_ENABLED` | `/diary`, `/diary/entry/[id]`, `/diary/session/[id]`, `/diary/burn`, `/diary/stories`, `/diary/settings` |
+| Prayer (Salah) | `PRAYER_ENABLED` | `/prayer`, `/prayer/progress`, `/prayer/qada`, `/prayer/settings` |
+
+**MindReset** is the digital wellbeing section: a Thriving score built from the user's own baseline, a 7-day and hourly usage view, a focus timer, limits (caps, schedules, shared budgets, Bedtime / Work Focus / Brick Mode presets) and a reflective pause. It stores one aggregated row per day — totals, per-app minutes and 24 hour buckets — never raw app events; the Android bridge posts those rows to `/api/mindreset/usage`, and the Home screen offers manual entry until it is connected. Pause answers can be copied into today's Diary. Export and delete live in `/mindreset/settings`.
+
+```bash
+# apply the additive MindReset tables (five new tables, no existing table altered)
+npm run db:push
+```
+
+**Prayer** is the salah section: prayer times for your coordinates (six calculation methods, standard or Hanafi Asr, high-latitude rules, minute adjustment), a five-arc daily ring, one-tap logging (on time · late · missed, reversible), optional sunnah and Witr, a qada ledger with a plain-language plan, and a GitHub-style heatmap over the last year plus a five-row prayer-by-prayer grid. A day-state layer (Active · Excused · Adapted · Traveller · In review) is always confirmed by you and always undoable from the banner; an excused day keeps the streak and adds no qada, and a missed prayer pauses rather than resets. Times are computed on the server from the coordinates stored in `prayer_settings` — no location is ever sent to a third party, and nothing is shared or ranked.
+
+```bash
+# apply the additive Prayer tables (five new tables, no existing table altered)
+npm run db:push
+```
 
 **Diary Mode** keeps the AI quiet: one cached structured call per entry returns two mood colours, three emoji stamps, a one-line silver lining and the next day's spark. Deep modes (alter-ego, Devil's Advocate, Creative Collaborator) run only when opened, are capped at a fixed number of turns, and store a transcript you can delete. The Burn Diary never persists the original text — only the takeaway is written. Locked entries are AES-GCM ciphertext produced in the browser; the passphrase never reaches the server.
 

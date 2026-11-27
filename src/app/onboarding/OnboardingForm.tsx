@@ -5,6 +5,7 @@ import { Loader2, Sparkles } from "lucide-react";
 import { completeOnboarding, type OnboardingState } from "./actions";
 
 const TIMEZONES = [
+  "Asia/Colombo",
   "Asia/Kolkata",
   "Asia/Dubai",
   "Asia/Singapore",

@@ -19,6 +19,7 @@ import { MainTaskBoard, type BoardTask } from "@/components/tasks/MainTaskBoard"
 import { TodaySchedule } from "@/components/today/TodaySchedule";
 import { toUiEvent } from "@/lib/dto";
 import { listMainTasks } from "@/lib/tasks/service";
+import { summariseDayTasks } from "@/lib/tasks/week";
 
 export const metadata = { title: "Today · LifeOS" };
 export const dynamic = "force-dynamic";
@@ -65,8 +66,15 @@ export default async function TodayPage() {
     }));
   const firstName = (profile.name ?? profile.email).split(" ")[0];
   const nowMinutes = (now.getTime() - overview.dayStart.getTime()) / 60_000;
-  const openTaskCount = overview.tasks.filter((task) => task.status !== "done").length;
-  const statusLine = `${openTaskCount} open task${openTaskCount === 1 ? "" : "s"} today`;
+  // Only tasks that belong to today: due today or completed today. The old
+  // line counted every open task in the whole account and called it "today".
+  const todayTasks = summariseDayTasks(overview.tasks, overview.dayStart, overview.dayEnd);
+  const statusLine =
+    todayTasks.total === 0
+      ? overview.events.length > 0
+        ? "No tasks due today"
+        : "Nothing scheduled today"
+      : `${todayTasks.open} open task${todayTasks.open === 1 ? "" : "s"} today`;
   const actionableWarnings = brief.warnings.filter(
     (warning) => !warning.startsWith("Nothing on the calendar yet today."),
   );
@@ -115,7 +123,24 @@ export default async function TodayPage() {
               <div className="mt-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-white/65">
                 <Calendar className="h-4 w-4 text-violet-300/80" />
                 <span>{statusLine}</span>
-                {stats.adherence > 0 && <span className="text-white/45">· {stats.adherence}% tasks complete this week</span>}
+                {todayTasks.total > 0 && (
+                  <Link
+                    href="/priorities"
+                    className="text-white/45 underline decoration-white/20 underline-offset-2 transition hover:text-white/75"
+                    title="Open today's tasks"
+                  >
+                    · {todayTasks.done} of {todayTasks.total} done today
+                  </Link>
+                )}
+                {stats.totalTasks > 0 && (
+                  <Link
+                    href="/review"
+                    className="text-white/45 underline decoration-white/20 underline-offset-2 transition hover:text-white/75"
+                    title="See this week's review"
+                  >
+                    · {stats.adherence}% of this week&apos;s tasks
+                  </Link>
+                )}
               </div>
             </div>
 

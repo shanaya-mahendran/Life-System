@@ -5,7 +5,10 @@ import { listEvents } from "@/lib/calendar/service";
 import { AppShell } from "@/components/shell/AppShell";
 import { resetFeatures } from "@/lib/reset/flags";
 import { diaryEnabled } from "@/lib/diary/flags";
+import { mindResetEnabled } from "@/lib/mindreset/flags";
+import { prayerEnabled } from "@/lib/prayer/flags";
 import { addZonedDays, startOfWeekMonday, startOfZonedDay } from "@/lib/time";
+import { summariseWeekTasks } from "@/lib/tasks/week";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const { profile, user } = await requireProfile();
@@ -20,17 +23,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const weekEnd = addZonedDays(weekStart, 7, user.timezone);
   const weeklyEvents = await listEvents(user, { from: weekStart, to: weekEnd });
 
-  const weeklyTasks = tasks.filter(
-    (task) =>
-      (task.dueDate && task.dueDate >= weekStart && task.dueDate < weekEnd) ||
-      (task.completedAt && task.completedAt >= weekStart && task.completedAt < weekEnd),
-  );
-  const doneThisWeek = weeklyTasks.filter(
-    (task) =>
-      (task.completedAt && task.completedAt >= weekStart && task.completedAt < weekEnd) ||
-      (task.status === "done" && !task.completedAt && task.dueDate && task.dueDate >= weekStart && task.dueDate < weekEnd),
-  ).length;
-  const adherence = Math.round((doneThisWeek / (weeklyTasks.length || 1)) * 100);
+  // Same week-scoped rules as the Today header and the weekly review, so the
+  // sidebar percentage always matches what the page says.
+  const weekTasks = summariseWeekTasks(tasks, weekStart, weekEnd);
+  const adherence = weekTasks.adherence;
   const eventAchievedCount = weeklyEvents.filter((event) => event.achievementStatus === "achieved").length;
   const eventResolvedCount = weeklyEvents.filter((event) => event.achievementStatus !== null).length;
 
@@ -44,12 +40,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     <AppShell
       userName={profile.name ?? profile.email}
       adherence={adherence}
-      taskCount={weeklyTasks.length}
+      taskCount={weekTasks.total}
       eventPlanCount={weeklyEvents.length}
       eventAchievedCount={eventAchievedCount}
       eventResolvedCount={eventResolvedCount}
       notificationCount={notificationCount}
-      features={{ ...resetFeatures(), diary: diaryEnabled() }}
+      features={{ ...resetFeatures(), diary: diaryEnabled(), mindReset: mindResetEnabled(), prayer: prayerEnabled() }}
     >
       {children}
     </AppShell>
